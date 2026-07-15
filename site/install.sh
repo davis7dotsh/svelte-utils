@@ -37,5 +37,5 @@ esac
 
 echo ""
 echo "Next steps:"
-echo "  svelte-utils config set host http://<your-core-machine>:5175"
+echo "  svelte-utils config set host http://<your-core-machine>:7488"
 echo "  svelte-utils open Component.svelte"

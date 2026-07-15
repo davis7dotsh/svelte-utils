@@ -53,7 +53,7 @@ function get_host(args) {
 }
 
 function local_port() {
-	return process.env.SVELTE_PLAYGROUND_PORT || config.port || '5175';
+	return process.env.SVELTE_PLAYGROUND_PORT || config.port || '7488';
 }
 
 // ---------------------------------------------------------------------------
@@ -75,9 +75,9 @@ Usage:
 Host resolution: --host flag > SVELTE_UTILS_HOST > "host" in ~/.svelte-utils > http://localhost:${local_port()}
 
 Config keys:
-  host   base URL of the playground core, e.g. http://siva:5175
+  host   base URL of the playground core, e.g. http://siva:7488
   repo   path to a svelte-utils repo clone (for server/daemon commands)
-  port   port for locally managed servers (default 5175)`);
+  port   port for locally managed servers (default 7488)`);
 	process.exit(code);
 }
 

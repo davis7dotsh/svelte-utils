@@ -17,7 +17,7 @@ The CLI is a single dependency-free Node script — Node 20+ is the only require
 ```bash
 git clone https://github.com/davis7dotsh/svelte-utils
 cd svelte-utils && pnpm install
-svelte-utils daemon install     # builds + installs a systemd service on 0.0.0.0:5175, starts at boot
+svelte-utils daemon install     # builds + installs a systemd service on 0.0.0.0:7488, starts at boot
 sudo loginctl enable-linger $USER   # keep it running after logout
 ```
 
@@ -26,10 +26,10 @@ Or for a throwaway local dev server instead: `svelte-utils server start [--expos
 ## Point other machines at it
 
 ```bash
-svelte-utils config set host http://siva:5175
+svelte-utils config set host http://siva:7488
 ```
 
-Host resolution order: `--host` flag → `SVELTE_UTILS_HOST` env → `host` in `~/.svelte-utils` → `http://localhost:5175`.
+Host resolution order: `--host` flag → `SVELTE_UTILS_HOST` env → `host` in `~/.svelte-utils` → `http://localhost:7488`.
 
 ## Use it
 
@@ -50,7 +50,7 @@ laptop ── svelte-utils open Foo.svelte ──► core (siva)
                                             ├── POST /api/check     (svelte-check in a temp workspace)
                                             ├── POST /api/autofix   (@sveltejs/mcp svelteAutofixer)
                                             └── GET  /?s=<id>       (playground page, polls session)
-browser ◄── opens http://siva:5175/?s=<id> ──┘
+browser ◄── opens http://siva:7488/?s=<id> ──┘
 ```
 
 The playground itself compiles and bundles **in the browser** (compiler + Rollup in web workers, npm imports fetched from a CDN), so the core stays lightweight.
