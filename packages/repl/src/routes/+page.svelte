@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Repl from '$lib/Repl.svelte';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import '@sveltejs/site-kit/styles/index.css';
 
@@ -27,9 +28,12 @@
 		let mtime = 0;
 		let interval: ReturnType<typeof setInterval> | undefined;
 
+		const file = page.url.searchParams.get('file');
+		const endpoint = `/local-file${file ? `?path=${encodeURIComponent(file)}` : ''}`;
+
 		async function load(initial: boolean) {
 			try {
-				const res = await fetch('/local-file');
+				const res = await fetch(endpoint);
 				if (!res.ok) throw new Error(await res.text());
 				const data = await res.json();
 				if (data.mtime !== mtime) {

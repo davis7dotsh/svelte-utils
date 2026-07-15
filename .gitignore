@@ -2,3 +2,4 @@ node_modules/
 .svelte-kit/
 dist/
 .DS_Store
+packages/checker/.tmp/

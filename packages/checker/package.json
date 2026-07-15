@@ -1,0 +1,11 @@
+{
+	"name": "checker",
+	"private": true,
+	"type": "module",
+	"description": "Hidden workspace used by `svelte-utils check` to run svelte-check on single files",
+	"devDependencies": {
+		"svelte": "^5.53.3",
+		"svelte-check": "^4.7.3",
+		"typescript": "^5.9.3"
+	}
+}

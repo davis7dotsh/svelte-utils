@@ -3,7 +3,8 @@
 	"private": true,
 	"type": "module",
 	"bin": {
-		"svelte-playground": "./bin/svelte-playground.js"
+		"svelte-utils": "./bin/svelte-utils.js",
+		"svelte-playground": "./bin/svelte-utils.js"
 	},
 	"scripts": {
 		"dev": "pnpm --filter @sveltejs/repl dev",
