@@ -1,0 +1,7 @@
+packages:
+  - 'packages/*'
+
+catalog:
+  '@types/node': ^22.19.20
+  vite: ^8.0.16
+  vitest: ^4.1.8

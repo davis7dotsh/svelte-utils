@@ -1,0 +1,8 @@
+{
+	"extends": "./.svelte-kit/tsconfig.json",
+	"compilerOptions": {
+		"allowJs": true,
+		"checkJs": true,
+		"skipLibCheck": true // TODO remove once vite-plugin-svelte exposes PluginOptions
+	}
+}

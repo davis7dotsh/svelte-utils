@@ -1,0 +1,11 @@
+{
+	"name": "svelte-playround-fork",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "pnpm --filter @sveltejs/repl dev",
+		"build": "pnpm --filter @sveltejs/repl build",
+		"preview": "pnpm --filter @sveltejs/repl preview",
+		"check": "pnpm --filter @sveltejs/repl check"
+	}
+}

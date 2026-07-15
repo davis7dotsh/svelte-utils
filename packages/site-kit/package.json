@@ -1,0 +1,127 @@
+{
+	"name": "@sveltejs/site-kit",
+	"version": "6.0.0-next.64",
+	"description": "Styles and components for use in *.svelte.dev websites",
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev",
+		"check": "svelte-kit sync && svelte-check",
+		"package": "svelte-kit sync",
+		"lint": "prettier --check .",
+		"format": "prettier --write ."
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/sveltejs/svelte.dev.git"
+	},
+	"author": "Rich Harris",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/sveltejs/svelte.dev/issues"
+	},
+	"homepage": "https://github.com/sveltejs/svelte.dev/tree/main/packages/site-kit#readme",
+	"dependencies": {
+		"@codemirror/autocomplete": "^6.20.0",
+		"@codemirror/commands": "^6.10.2",
+		"@codemirror/lang-css": "^6.3.1",
+		"@codemirror/lang-html": "^6.4.11",
+		"@codemirror/lang-javascript": "^6.2.4",
+		"@codemirror/language": "^6.12.2",
+		"@codemirror/lint": "^6.9.4",
+		"@codemirror/search": "^6.6.0",
+		"@codemirror/state": "^6.5.4",
+		"@codemirror/view": "^6.39.15",
+		"@fontsource/atkinson-hyperlegible": "^5.2.8",
+		"@fontsource/dm-serif-display": "^5.2.8",
+		"@fontsource/eb-garamond": "^5.2.7",
+		"@fontsource/fira-mono": "^5.2.7",
+		"@fontsource/fira-sans": "^5.2.7",
+		"@lezer/common": "^1.5.1",
+		"@replit/codemirror-lang-svelte": "^6.0.0",
+		"@shikijs/langs": "^4.2.0",
+		"@shikijs/twoslash": "^4.2.0",
+		"esm-env": "^1.2.2",
+		"icons": "workspace:*",
+		"json5": "^2.2.3",
+		"shiki": "^4.2.0"
+	},
+	"devDependencies": {
+		"@shikijs/vitepress-twoslash": "^4.2.0",
+		"@sveltejs/kit": "^3.0.0-next.1",
+		"@types/node": "catalog:",
+		"flexsearch": "^0.8.212",
+		"gzip": "workspace:*",
+		"magic-string": "^0.30.21",
+		"marked": "^17.0.3",
+		"prettier": "^3.8.1",
+		"prettier-plugin-svelte": "^3.5.0",
+		"svelte": "^5.53.5",
+		"svelte-check": "^4.7.2",
+		"typescript": "^6.0.3",
+		"vite": "catalog:"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"peerDependencies": {
+		"@sveltejs/kit": "^2.20.0",
+		"svelte": "^4.0.0 || ^5.0.0-next.1"
+	},
+	"types": "./dist/types.d.ts",
+	"exports": {
+		".": {
+			"types": "./src/lib/types.d.ts"
+		},
+		"./actions": {
+			"default": "./src/lib/actions/index.ts"
+		},
+		"./state": {
+			"default": "./src/lib/state/index.ts"
+		},
+		"./stores": {
+			"default": "./src/lib/stores/index.ts"
+		},
+		"./codemirror": {
+			"default": "./src/lib/codemirror/index.js"
+		},
+		"./branding/svelte-logo.svg": "./src/lib/branding/svelte-logo.svg",
+		"./components": {
+			"default": "./src/lib/components/index.ts",
+			"svelte": "./src/lib/components/index.ts"
+		},
+		"./docs": {
+			"default": "./src/lib/docs/index.ts",
+			"svelte": "./src/lib/docs/index.ts"
+		},
+		"./markdown": {
+			"default": "./src/lib/markdown/index.ts"
+		},
+		"./markdown/preprocess": {
+			"default": "./src/lib/markdown/preprocess.ts"
+		},
+		"./nav": {
+			"default": "./src/lib/nav/index.ts",
+			"svelte": "./src/lib/nav/index.ts"
+		},
+		"./polyfills": {
+			"default": "./src/lib/polyfills/index.ts"
+		},
+		"./search": {
+			"default": "./src/lib/search/index.ts",
+			"svelte": "./src/lib/search/index.ts"
+		},
+		"./server/content": {
+			"default": "./src/lib/server/content/index.ts",
+			"svelte": "./src/lib/server/content/index.ts"
+		},
+		"./styles/base.css": "./src/lib/styles/base.css",
+		"./styles/code.css": "./src/lib/styles/code.css",
+		"./styles/fonts.css": "./src/lib/styles/fonts.css",
+		"./styles/index.css": "./src/lib/styles/index.css",
+		"./styles/text.css": "./src/lib/styles/text.css",
+		"./styles/tokens.css": "./src/lib/styles/tokens.css"
+	},
+	"files": [
+		"dist"
+	]
+}
