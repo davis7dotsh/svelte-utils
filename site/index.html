@@ -7,7 +7,15 @@
 	<meta name="description" content="Preview, check and autofix self-contained .svelte components from a dependency-free CLI against a self-hosted playground core. Not affiliated with the Svelte team." />
 	<link rel="icon" href="svelte-logo.svg" />
 	<style>
-		:root { color-scheme: light dark; }
+		:root {
+			color-scheme: light dark;
+			--orange: #FF3E00; /* official Svelte orange */
+			--code-bg: #111114;
+			--code-border: #2b2b31;
+			--code-text: #e8e8ea;
+			/* subtle monochrome noise via SVG feTurbulence */
+			--noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+		}
 		* { box-sizing: border-box; }
 		body {
 			font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -17,29 +25,45 @@
 		header { display: flex; align-items: center; gap: 1rem; }
 		header img { width: 3.4rem; height: auto; }
 		h1 { font-size: 2.2rem; margin: 0; }
-		h1 span { color: #ff3e00; }
+		h1 span { color: var(--orange); }
 		.tagline { font-size: 1.15rem; opacity: 0.85; margin-top: 1rem; }
 		.notice {
 			border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
 			border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.9rem; opacity: 0.9;
 		}
+		code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+		/* inline code snippets (outside pre): styled as little chips */
+		:not(pre) > code {
+			background: var(--code-bg) var(--noise);
+			color: var(--code-text);
+			border: 1px solid var(--code-border);
+			border-radius: 5px;
+			padding: 0.1em 0.4em;
+			font-size: 0.86em;
+			white-space: nowrap;
+		}
+		/* code blocks: dark terminal look with noise, in both color schemes */
 		pre {
-			background: color-mix(in srgb, currentColor 8%, transparent);
-			padding: 0.9rem 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.88rem;
+			background: var(--code-bg) var(--noise);
+			color: var(--code-text);
+			border: 1px solid var(--code-border);
+			padding: 2.6rem 1rem 0.9rem; /* top padding keeps the copy button clear of code */
+			border-radius: 10px; overflow-x: auto; font-size: 0.88rem;
 			position: relative;
 		}
-		code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-		h2 { margin-top: 2.5rem; }
-		a { color: #ff3e00; }
-		ul { padding-left: 1.2rem; }
-		li { margin: 0.35rem 0; }
 		.copy {
-			position: absolute; top: 0.5rem; right: 0.5rem;
-			font: inherit; font-size: 0.75rem; padding: 0.25rem 0.6rem;
-			border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
-			border-radius: 6px; background: transparent; color: inherit; cursor: pointer;
+			position: absolute; top: 0.55rem; right: 0.55rem;
+			font: inherit; font-size: 0.75rem; padding: 0.25rem 0.7rem;
+			border: 1px solid var(--code-border);
+			border-radius: 6px;
+			background: #1d1d22; color: var(--code-text);
+			cursor: pointer;
 		}
-		.copy:hover { border-color: #ff3e00; color: #ff3e00; }
+		.copy:hover { border-color: var(--orange); color: var(--orange); }
+		h2 { margin-top: 2.5rem; }
+		a { color: var(--orange); }
+		ul { padding-left: 1.2rem; }
+		li { margin: 0.5rem 0; }
 		footer { margin-top: 4rem; font-size: 0.85rem; opacity: 0.7; }
 	</style>
 </head>
@@ -51,14 +75,14 @@
 
 	<p class="tagline">Test-drive self-contained <code>.svelte</code> components from a tiny, dependency-free CLI — against a self-hosted playground "core" running anywhere on your network.</p>
 
-	<p class="notice">⚠️ <strong>Not affiliated with the Svelte team.</strong> Independent open-source project that reuses the MIT-licensed playground from <a href="https://github.com/sveltejs/svelte.dev">sveltejs/svelte.dev</a> and the <a href="https://svelte.dev/docs/ai/overview">@sveltejs/mcp</a> autofixer. All credit for those goes to the Svelte contributors.</p>
+	<p class="notice">⚠️ <strong>Not affiliated with the Svelte team.</strong> Independent open-source project that reuses the MIT-licensed playground from <a href="https://github.com/sveltejs/svelte.dev" target="_blank" rel="noopener">sveltejs/svelte.dev</a> and the <a href="https://svelte.dev/docs/ai/overview" target="_blank" rel="noopener">@sveltejs/mcp</a> autofixer. All credit for those goes to the Svelte contributors.</p>
 
 	<h2>What it does</h2>
 	<ul>
-		<li><strong><code>svelte-utils open Component.svelte</code></strong> — push a component to the core and preview it in a full Svelte playground (editor, live result, JS/CSS/AST output). Re-running <code>open</code> after an edit hot-updates the already-open browser tab.</li>
-		<li><strong><code>svelte-utils check Component.svelte</code></strong> — run <a href="https://svelte.dev/docs/cli/sv-check">svelte-check</a> diagnostics (a11y, unused CSS, compiler errors). <code>--json</code> for pipelines; exits 1 on errors.</li>
-		<li><strong><code>svelte-utils best-practices Component.svelte</code></strong> — run the official Svelte autofixer (static analysis + fix suggestions, designed for agentic loops). <code>--json</code>; exits 1 on issues.</li>
-		<li><strong><code>svelte-utils daemon install</code></strong> — turn a Linux box into an always-on core: production build, systemd service on <code>0.0.0.0:5175</code>, starts at boot, auto-restarts.</li>
+		<li><code>svelte-utils open Component.svelte</code> — push a component to the core and preview it in a full Svelte playground (editor, live result, JS/CSS/AST output). Re-running <code>open</code> after an edit hot-updates the already-open browser tab.</li>
+		<li><code>svelte-utils check Component.svelte</code> — run <a href="https://svelte.dev/docs/cli/sv-check" target="_blank" rel="noopener">svelte-check</a> diagnostics (a11y, unused CSS, compiler errors). <code>--json</code> for pipelines; exits 1 on errors.</li>
+		<li><code>svelte-utils best-practices Component.svelte</code> — run the official Svelte autofixer (static analysis + fix suggestions, designed for agentic loops). <code>--json</code>; exits 1 on issues.</li>
+		<li><code>svelte-utils daemon install</code> — turn a Linux box into an always-on core: production build, systemd service on <code>0.0.0.0:5175</code>, starts at boot, auto-restarts.</li>
 	</ul>
 	<p>All checks run on the core, so client machines need nothing but the single-file CLI and Node 20+.</p>
 
@@ -95,7 +119,7 @@ svelte-utils config                            # show current config
 svelte-utils daemon status                     # core health (on the server)</code><button class="copy" onclick="copyBlock(this)">copy</button></pre>
 
 	<footer>
-		<a href="https://github.com/davis7dotsh/svelte-utils">GitHub</a> · MIT licensed · includes code from <a href="https://github.com/sveltejs/svelte.dev">sveltejs/svelte.dev</a> (MIT) · Svelte logo © the Svelte contributors
+		<a href="https://github.com/davis7dotsh/svelte-utils" target="_blank" rel="noopener">GitHub</a> · MIT licensed · includes code from <a href="https://github.com/sveltejs/svelte.dev" target="_blank" rel="noopener">sveltejs/svelte.dev</a> (MIT) · Svelte logo © the Svelte contributors
 	</footer>
 
 	<script>
