@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>svelte-utils — test-drive .svelte components</title>
+	<meta name="description" content="Preview, check and autofix self-contained .svelte components from a dependency-free CLI against a self-hosted playground core. Not affiliated with the Svelte team." />
+	<style>
+		:root { color-scheme: light dark; }
+		* { box-sizing: border-box; }
+		body {
+			font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+			max-width: 42rem; margin: 0 auto; padding: 3rem 1.25rem 5rem;
+			line-height: 1.6;
+		}
+		h1 { font-size: 2.2rem; margin-bottom: 0.25rem; }
+		h1 span { color: #ff3e00; }
+		.tagline { font-size: 1.15rem; opacity: 0.85; margin-top: 0; }
+		.notice {
+			border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+			border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.9rem; opacity: 0.9;
+		}
+		pre {
+			background: color-mix(in srgb, currentColor 8%, transparent);
+			padding: 0.9rem 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.9rem;
+		}
+		code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+		h2 { margin-top: 2.5rem; }
+		a { color: #ff3e00; }
+		footer { margin-top: 4rem; font-size: 0.85rem; opacity: 0.7; }
+	</style>
+</head>
+<body>
+	<h1><span>svelte</span>-utils</h1>
+	<p class="tagline">Test-drive self-contained <code>.svelte</code> components: instant playground previews, <code>svelte-check</code>, and the official Svelte autofixer — from one tiny CLI, against a core server on any machine on your network.</p>
+
+	<p class="notice">⚠️ <strong>Not affiliated with the Svelte team.</strong> This is an independent open-source project that reuses the MIT-licensed playground from <a href="https://github.com/sveltejs/svelte.dev">sveltejs/svelte.dev</a> and the <a href="https://svelte.dev/docs/ai/overview">@sveltejs/mcp</a> autofixer. All credit for those goes to the Svelte contributors.</p>
+
+	<h2>Install the CLI</h2>
+	<pre><code>curl -fsSL https://davis7dotsh.github.io/svelte-utils/install.sh | sh</code></pre>
+	<p>One dependency-free Node script. Requires Node 20+.</p>
+
+	<h2>Set up a core (server machine)</h2>
+	<pre><code>git clone https://github.com/davis7dotsh/svelte-utils
+cd svelte-utils && pnpm install
+svelte-utils daemon install   # systemd service on 0.0.0.0:5175, starts at boot</code></pre>
+
+	<h2>Use it from anywhere</h2>
+	<pre><code>svelte-utils config set host http://your-server:5175
+
+svelte-utils open Component.svelte            # live playground preview
+svelte-utils check Component.svelte           # svelte-check diagnostics
+svelte-utils best-practices Component.svelte  # Svelte autofixer</code></pre>
+	<p>Re-running <code>open</code> after an edit hot-updates the already-open browser tab. <code>--json</code> flags make <code>check</code> and <code>best-practices</code> pipeline-friendly.</p>
+
+	<footer>
+		<a href="https://github.com/davis7dotsh/svelte-utils">GitHub</a> · MIT licensed · includes code from <a href="https://github.com/sveltejs/svelte.dev">sveltejs/svelte.dev</a> (MIT)
+	</footer>
+</body>
+</html>

@@ -28,8 +28,11 @@
 		let mtime = 0;
 		let interval: ReturnType<typeof setInterval> | undefined;
 
+		const session = page.url.searchParams.get('s');
 		const file = page.url.searchParams.get('file');
-		const endpoint = `/local-file${file ? `?path=${encodeURIComponent(file)}` : ''}`;
+		const endpoint = session
+			? `/api/session/${encodeURIComponent(session)}`
+			: `/local-file${file ? `?path=${encodeURIComponent(file)}` : ''}`;
 
 		async function load(initial: boolean) {
 			try {

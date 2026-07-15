@@ -1,32 +1,83 @@
 #!/usr/bin/env node
+// svelte-utils — test-drive self-contained .svelte components.
+// Not affiliated with the Svelte team. https://github.com/davis7dotsh/svelte-utils
+//
+// Dependency-free by design: this single file is the entire client CLI.
 import { spawn, spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, openSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(fileURLToPath(import.meta.url), '../..');
-const repl_dir = path.join(root, 'packages/repl');
-const checker_dir = path.join(root, 'packages/checker');
+const VERSION = '0.2.0';
 
-const PORT = process.env.SVELTE_PLAYGROUND_PORT || '5175';
-const BASE = `http://localhost:${PORT}`;
+// ---------------------------------------------------------------------------
+// config (~/.svelte-utils, JSON)
+// ---------------------------------------------------------------------------
 
-const state_dir = path.join(os.homedir(), '.svelte-playground');
-const pid_file = path.join(state_dir, 'server.pid');
-const log_file = path.join(state_dir, 'server.log');
+const config_path = path.join(os.homedir(), '.svelte-utils');
+
+function read_config() {
+	try {
+		return JSON.parse(readFileSync(config_path, 'utf-8'));
+	} catch {
+		return {};
+	}
+}
+
+function write_config(config) {
+	writeFileSync(config_path, JSON.stringify(config, null, '\t') + '\n');
+}
+
+const config = read_config();
+
+/** repo dir, when this CLI lives inside a clone (or `config.repo` points at one) */
+function find_repo() {
+	if (config.repo && existsSync(path.join(config.repo, 'packages/repl'))) return config.repo;
+	try {
+		const here = path.resolve(fileURLToPath(import.meta.url), '../..');
+		if (existsSync(path.join(here, 'packages/repl'))) return here;
+	} catch {
+		// installed standalone
+	}
+	return null;
+}
+
+function get_host(args) {
+	const flag = args.indexOf('--host');
+	if (flag !== -1 && args[flag + 1]) return args[flag + 1].replace(/\/$/, '');
+	if (process.env.SVELTE_UTILS_HOST) return process.env.SVELTE_UTILS_HOST.replace(/\/$/, '');
+	if (config.host) return String(config.host).replace(/\/$/, '');
+	return `http://localhost:${local_port()}`;
+}
+
+function local_port() {
+	return process.env.SVELTE_PLAYGROUND_PORT || config.port || '5175';
+}
+
+// ---------------------------------------------------------------------------
+// helpers
+// ---------------------------------------------------------------------------
 
 function usage(code = 1) {
-	console.log(`svelte-utils — test-drive self-contained .svelte components
+	console.log(`svelte-utils v${VERSION} — test-drive self-contained .svelte components
+(not affiliated with the Svelte team)
 
 Usage:
-  svelte-utils open <file.svelte> [--no-open]   preview in the playground (starts server if needed)
-  svelte-utils check <file.svelte>              run svelte-check (sv check) on the file
-  svelte-utils best-practices <file.svelte>     run the Svelte autofixer (static analysis + suggestions)
-  svelte-utils server <start|stop|status>       manage the always-on playground server
+  svelte-utils open <file.svelte> [--no-open]     push to the playground and open it
+  svelte-utils check <file.svelte> [--json]       run svelte-check via the server
+  svelte-utils best-practices <file.svelte> [--json]  run the Svelte autofixer via the server
+  svelte-utils config [set <key> <value> | unset <key>]
+  svelte-utils server <start|stop|status> [--expose]  manage a local dev server (needs repo clone)
+  svelte-utils daemon <install|uninstall|status|logs> install as a systemd service (Linux, needs repo clone)
 
-The playground server runs on port ${PORT} (override with SVELTE_PLAYGROUND_PORT).
-Files opened in the playground are watched: saving on disk live-reloads the preview.`);
+Host resolution: --host flag > SVELTE_UTILS_HOST > "host" in ~/.svelte-utils > http://localhost:${local_port()}
+
+Config keys:
+  host   base URL of the playground core, e.g. http://siva:5175
+  repo   path to a svelte-utils repo clone (for server/daemon commands)
+  port   port for locally managed servers (default 5175)`);
 	process.exit(code);
 }
 
@@ -44,39 +95,25 @@ function resolve_svelte_file(arg) {
 	return abs;
 }
 
-async function is_running() {
+async function api(host, method, endpoint, body) {
+	let res;
 	try {
-		const res = await fetch(`${BASE}/`, { signal: AbortSignal.timeout(1000) });
-		return res.ok;
+		res = await fetch(`${host}${endpoint}`, {
+			method,
+			headers: body ? { 'content-type': 'application/json' } : undefined,
+			body: body ? JSON.stringify(body) : undefined,
+			signal: AbortSignal.timeout(90_000)
+		});
 	} catch {
-		return false;
+		console.error(`Could not reach playground server at ${host}`);
+		console.error(`Is it running? (svelte-utils server start / svelte-utils daemon status)`);
+		process.exit(1);
 	}
-}
-
-async function ensure_server() {
-	if (await is_running()) return false;
-
-	mkdirSync(state_dir, { recursive: true });
-	const log = openSync(log_file, 'a');
-	const child = spawn('pnpm', ['dev', '--port', PORT, '--strictPort'], {
-		cwd: repl_dir,
-		detached: true,
-		stdio: ['ignore', log, log]
-	});
-	child.unref();
-	writeFileSync(pid_file, String(child.pid));
-
-	process.stdout.write(`Starting playground server on ${BASE} `);
-	for (let i = 0; i < 60; i++) {
-		await new Promise((f) => setTimeout(f, 500));
-		if (await is_running()) {
-			console.log('✔');
-			return true;
-		}
-		process.stdout.write('.');
+	if (!res.ok) {
+		console.error(`Server error ${res.status}: ${await res.text()}`);
+		process.exit(1);
 	}
-	console.error(`\nServer did not come up. Check logs: ${log_file}`);
-	process.exit(1);
+	return res.json();
 }
 
 function open_in_browser(url) {
@@ -85,46 +122,172 @@ function open_in_browser(url) {
 	spawn(opener, [url], { stdio: 'ignore', detached: true }).unref();
 }
 
+async function is_running(host) {
+	try {
+		const res = await fetch(`${host}/`, { signal: AbortSignal.timeout(1500) });
+		return res.ok;
+	} catch {
+		return false;
+	}
+}
+
+function is_local(host) {
+	return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(host);
+}
+
+// ---------------------------------------------------------------------------
+// local dev server management (requires a repo clone)
+// ---------------------------------------------------------------------------
+
+const state_dir = path.join(os.homedir(), '.svelte-utils-state');
+const pid_file = path.join(state_dir, 'server.pid');
+const log_file = path.join(state_dir, 'server.log');
+
+function require_repo() {
+	const repo = find_repo();
+	if (!repo) {
+		console.error(`This command needs a svelte-utils repo clone.
+Clone https://github.com/davis7dotsh/svelte-utils and either run the CLI from
+inside it, or set: svelte-utils config set repo /path/to/svelte-utils`);
+		process.exit(1);
+	}
+	return repo;
+}
+
+async function start_local_server({ expose = false } = {}) {
+	const repo = require_repo();
+	const port = local_port();
+
+	mkdirSync(state_dir, { recursive: true });
+	const log = openSync(log_file, 'a');
+	const child = spawn(
+		'pnpm',
+		['dev', '--port', port, '--strictPort', ...(expose ? ['--host', '0.0.0.0'] : [])],
+		{ cwd: path.join(repo, 'packages/repl'), detached: true, stdio: ['ignore', log, log] }
+	);
+	child.unref();
+	writeFileSync(pid_file, String(child.pid));
+
+	const base = `http://localhost:${port}`;
+	process.stdout.write(`Starting playground server on ${base}${expose ? ' (exposed on 0.0.0.0)' : ''} `);
+	for (let i = 0; i < 60; i++) {
+		await new Promise((f) => setTimeout(f, 500));
+		if (await is_running(base)) {
+			console.log('✔');
+			return;
+		}
+		process.stdout.write('.');
+	}
+	console.error(`\nServer did not come up. Check logs: ${log_file}`);
+	process.exit(1);
+}
+
+// ---------------------------------------------------------------------------
+// commands
+// ---------------------------------------------------------------------------
+
 async function cmd_open(args) {
 	const abs = resolve_svelte_file(args[0]);
-	await ensure_server();
-	const url = `${BASE}/?file=${encodeURIComponent(abs)}`;
+	const host = get_host(args);
+
+	if (!(await is_running(host))) {
+		if (is_local(host) && find_repo()) {
+			await start_local_server();
+		} else {
+			console.error(`Playground server at ${host} is not reachable.`);
+			process.exit(1);
+		}
+	}
+
+	// deterministic id: re-running `open` on the same file updates the same
+	// session, and any open browser tab picks up the change within a second
+	const id = createHash('sha256')
+		.update(`${os.hostname()}:${realpathSync(abs)}`)
+		.digest('hex')
+		.slice(0, 16);
+
+	await api(host, 'POST', '/api/session', {
+		id,
+		basename: path.basename(abs),
+		contents: readFileSync(abs, 'utf-8')
+	});
+
+	const url = `${host}/?s=${id}`;
 	console.log(url);
 	if (!args.includes('--no-open')) open_in_browser(url);
 }
 
-function cmd_check(args) {
+async function cmd_check(args) {
 	const abs = resolve_svelte_file(args[0]);
-	const tmp = path.join(checker_dir, '.tmp', `check-${Date.now()}`);
-	mkdirSync(tmp, { recursive: true });
-	copyFileSync(abs, path.join(tmp, path.basename(abs)));
+	const host = get_host(args);
+	const result = await api(host, 'POST', '/api/check', {
+		basename: path.basename(abs),
+		contents: readFileSync(abs, 'utf-8')
+	});
 
-	try {
-		const result = spawnSync('pnpm', ['exec', 'svelte-check', '--workspace', tmp, '--no-tsconfig'], {
-			cwd: checker_dir,
-			stdio: 'inherit'
-		});
-		process.exitCode = result.status ?? 1;
-	} finally {
-		rmSync(tmp, { recursive: true, force: true });
+	if (args.includes('--json')) {
+		console.log(JSON.stringify(result, null, 2));
+	} else {
+		for (const d of result.diagnostics) {
+			console.log(
+				`${d.type.toLowerCase()} ${path.basename(abs)}:${d.start.line + 1}:${d.start.character + 1} ${d.message} (${d.source})`
+			);
+		}
+		const s = result.summary ?? { errors: 0, warnings: 0 };
+		console.log(`${s.errors} errors, ${s.warnings} warnings`);
 	}
+
+	process.exitCode = result.diagnostics.some((d) => d.type === 'ERROR') ? 1 : 0;
 }
 
-function cmd_best_practices(args) {
+async function cmd_best_practices(args) {
 	const abs = resolve_svelte_file(args[0]);
-	const result = spawnSync('npx', ['-y', '@sveltejs/mcp', 'svelte-autofixer', abs, ...args.slice(1)], {
-		stdio: 'inherit'
+	const host = get_host(args);
+	const result = await api(host, 'POST', '/api/autofix', {
+		basename: path.basename(abs),
+		contents: readFileSync(abs, 'utf-8')
 	});
-	process.exitCode = result.status ?? 1;
+
+	if (args.includes('--json')) {
+		console.log(JSON.stringify(result, null, 2));
+	} else {
+		if (result.issues.length === 0 && result.suggestions.length === 0) {
+			console.log('No issues or suggestions 🎉');
+		}
+		for (const issue of result.issues) console.log(`issue: ${issue}\n`);
+		for (const s of result.suggestions) console.log(`suggestion: ${s}\n`);
+	}
+
+	process.exitCode = result.issues.length > 0 ? 1 : 0;
+}
+
+function cmd_config(args) {
+	const [action, key, value] = args;
+	if (!action) {
+		console.log(`config file: ${config_path}`);
+		console.log(JSON.stringify(config, null, '\t'));
+	} else if (action === 'set' && key && value !== undefined) {
+		config[key] = value;
+		write_config(config);
+		console.log(`${key} = ${value}`);
+	} else if (action === 'unset' && key) {
+		delete config[key];
+		write_config(config);
+		console.log(`unset ${key}`);
+	} else {
+		usage();
+	}
 }
 
 async function cmd_server(args) {
 	const action = args[0] ?? 'status';
+	const base = `http://localhost:${local_port()}`;
 
 	if (action === 'status') {
-		console.log((await is_running()) ? `running on ${BASE}` : 'not running');
+		console.log((await is_running(base)) ? `running on ${base}` : 'not running');
 	} else if (action === 'start') {
-		if (!(await ensure_server())) console.log(`already running on ${BASE}`);
+		if (await is_running(base)) console.log(`already running on ${base}`);
+		else await start_local_server({ expose: args.includes('--expose') });
 	} else if (action === 'stop') {
 		if (!existsSync(pid_file)) {
 			console.log('no pid file; server not managed by this CLI?');
@@ -132,7 +295,7 @@ async function cmd_server(args) {
 		}
 		const pid = Number(readFileSync(pid_file, 'utf-8'));
 		try {
-			process.kill(-pid, 'SIGTERM'); // negative pid = whole process group (pnpm + vite)
+			process.kill(-pid, 'SIGTERM'); // negative pid = whole process group
 		} catch {
 			try {
 				process.kill(pid, 'SIGTERM');
@@ -147,6 +310,92 @@ async function cmd_server(args) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// daemon: production build + systemd service (Linux) — run this on the core box
+// ---------------------------------------------------------------------------
+
+const unit_path = path.join(os.homedir(), '.config/systemd/user/svelte-utils.service');
+
+function systemctl(...args) {
+	return spawnSync('systemctl', ['--user', ...args], { stdio: 'inherit' });
+}
+
+async function cmd_daemon(args) {
+	const action = args[0] ?? 'status';
+
+	if (action === 'status') {
+		systemctl('status', 'svelte-utils', '--no-pager');
+		return;
+	}
+	if (action === 'logs') {
+		spawnSync('journalctl', ['--user', '-u', 'svelte-utils', '-n', '100', '--no-pager'], {
+			stdio: 'inherit'
+		});
+		return;
+	}
+	if (action === 'uninstall') {
+		systemctl('disable', '--now', 'svelte-utils');
+		rmSync(unit_path, { force: true });
+		systemctl('daemon-reload');
+		console.log('svelte-utils service removed');
+		return;
+	}
+	if (action !== 'install') usage();
+
+	if (process.platform !== 'linux') {
+		console.error('daemon install currently supports Linux (systemd) only.');
+		console.error('On other platforms use: svelte-utils server start --expose');
+		process.exit(1);
+	}
+
+	const repo = require_repo();
+	const port = local_port();
+	const repl = path.join(repo, 'packages/repl');
+
+	console.log('Installing dependencies + building production server...');
+	let r = spawnSync('pnpm', ['install'], { cwd: repo, stdio: 'inherit' });
+	if (r.status !== 0) process.exit(r.status ?? 1);
+	r = spawnSync('pnpm', ['exec', 'vite', 'build'], { cwd: repl, stdio: 'inherit' });
+	if (r.status !== 0) process.exit(r.status ?? 1);
+
+	const node = process.execPath;
+	mkdirSync(path.dirname(unit_path), { recursive: true });
+	writeFileSync(
+		unit_path,
+		`[Unit]
+Description=svelte-utils playground core (not affiliated with the Svelte team)
+After=network.target
+
+[Service]
+WorkingDirectory=${repl}
+ExecStart=${node} build/index.js
+Environment=PORT=${port}
+Environment=HOST=0.0.0.0
+Environment=ORIGIN=http://%H:${port}
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
+`
+	);
+
+	systemctl('daemon-reload');
+	r = systemctl('enable', '--now', 'svelte-utils');
+	if (r.status !== 0) process.exit(r.status ?? 1);
+
+	config.host = `http://localhost:${port}`;
+	config.repo = repo;
+	write_config(config);
+
+	console.log(`\nsvelte-utils core installed and running on 0.0.0.0:${port}`);
+	console.log(`This machine's config now points at it (${config.host}).`);
+	console.log(`\nTo keep it running after logout: sudo loginctl enable-linger ${os.userInfo().username}`);
+	console.log(`On other machines: svelte-utils config set host http://<this-machine>:${port}`);
+}
+
+// ---------------------------------------------------------------------------
+
 const [command, ...rest] = process.argv.slice(2);
 
 switch (command) {
@@ -155,14 +404,24 @@ switch (command) {
 		await cmd_open(rest);
 		break;
 	case 'check':
-		cmd_check(rest);
+		await cmd_check(rest);
 		break;
 	case 'best-practices':
 	case 'fix':
-		cmd_best_practices(rest);
+		await cmd_best_practices(rest);
+		break;
+	case 'config':
+		cmd_config(rest);
 		break;
 	case 'server':
 		await cmd_server(rest);
+		break;
+	case 'daemon':
+		await cmd_daemon(rest);
+		break;
+	case '--version':
+	case '-v':
+		console.log(VERSION);
 		break;
 	case '--help':
 	case '-h':

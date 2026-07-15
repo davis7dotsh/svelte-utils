@@ -1,0 +1,22 @@
+name: Release CLI
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Attach CLI to release
+        run: |
+          cp bin/svelte-utils.js svelte-utils.js
+          gh release create "$GITHUB_REF_NAME" svelte-utils.js \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Standalone dependency-free CLI. Install: curl -fsSL https://davis7dotsh.github.io/svelte-utils/install.sh | sh"
+        env:
+          GH_TOKEN: ${{ github.token }}
