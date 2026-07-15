@@ -2,6 +2,9 @@
 	"name": "svelte-playround-fork",
 	"private": true,
 	"type": "module",
+	"bin": {
+		"svelte-playground": "./bin/svelte-playground.js"
+	},
 	"scripts": {
 		"dev": "pnpm --filter @sveltejs/repl dev",
 		"build": "pnpm --filter @sveltejs/repl build",
