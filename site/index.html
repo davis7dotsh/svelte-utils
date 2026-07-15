@@ -21,6 +21,7 @@
 			font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
 			max-width: 44rem; margin: 0 auto; padding: 3rem 1.25rem 5rem;
 			line-height: 1.6;
+			background: var(--noise);
 		}
 		header { display: flex; align-items: center; gap: 1rem; }
 		header img { width: 3.4rem; height: auto; }
@@ -34,7 +35,7 @@
 		code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 		/* inline code snippets (outside pre): styled as little chips */
 		:not(pre) > code {
-			background: var(--code-bg) var(--noise);
+			background: var(--code-bg);
 			color: var(--code-text);
 			border: 1px solid var(--code-border);
 			border-radius: 5px;
@@ -47,7 +48,7 @@
 		   the copy button stays fixed while <pre> scrolls horizontally */
 		.codeblock {
 			position: relative;
-			background: var(--code-bg) var(--noise);
+			background: var(--code-bg);
 			border: 1px solid var(--code-border);
 			border-radius: 10px;
 		}
