@@ -18,7 +18,12 @@
 			--noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.14'/%3E%3C/svg%3E");
 		}
 		* { box-sizing: border-box; }
-		html { background: var(--page-bg) var(--noise); }
+		html {
+			/* base color mixed slightly toward gray so the (noise-free) overscroll area
+			   matches the perceived brightness of the noised page */
+			background: color-mix(in srgb, var(--page-bg) 93%, #808080) var(--noise);
+			overscroll-behavior: none;
+		}
 		body {
 			font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
 			max-width: 44rem; margin: 0 auto; padding: 3rem 1.25rem 5rem;
