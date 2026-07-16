@@ -12,9 +12,9 @@ Test-drive self-contained `.svelte` components from the terminal: preview them i
 | `check <file.svelte>` | Run `svelte-check` on it (exit 1 on errors). `--json` for machine-readable output. |
 | `best-practices <file.svelte>` | Run the Svelte autofixer on it (exit 1 on issues). `--json` too. |
 | `config` | View or edit `~/.svelte-utils` (`host`, `repo`, `port`). |
-| `server <start\|stop\|status>` | Manage a throwaway local dev server (needs a repo clone). |
-| `daemon <install\|uninstall\|status\|logs>` | Install the core as a systemd service (Linux, needs a repo clone). |
-| `update` (alias `upgrade`) | Update the CLI to the latest release. |
+| `server <start\|stop\|status>` | Manage a local server (downloads a prebuilt bundle; uses a repo clone if you have one). |
+| `daemon <install\|uninstall\|status\|logs>` | Install the core as a systemd service (Linux). No repo clone needed. |
+| `update` (alias `upgrade`) | Update the CLI — and this machine's server/daemon, if it runs one — to the latest release. |
 
 ## Install
 
@@ -24,13 +24,13 @@ Test-drive self-contained `.svelte` components from the terminal: preview them i
 curl -fsSL https://davis7dotsh.github.io/svelte-utils/install.sh | sh
 ```
 
-**Core (the server machine):**
+**Core (the server machine):** install the CLI the same way, then:
 
 ```bash
-git clone https://github.com/davis7dotsh/svelte-utils
-cd svelte-utils && pnpm install
 svelte-utils daemon install
 ```
+
+This downloads a prebuilt server bundle and installs it as a systemd service on `0.0.0.0:7488`. Later `svelte-utils update` runs update the server too and restart the daemon.
 
 **Point other machines at it:**
 

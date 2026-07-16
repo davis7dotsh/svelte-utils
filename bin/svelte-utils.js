@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '0.3.0';
+const VERSION = '0.4.0';
 
 // ---------------------------------------------------------------------------
 // config (~/.svelte-utils, JSON)
@@ -147,29 +147,80 @@ function is_local(host) {
 const state_dir = path.join(os.homedir(), '.svelte-utils-state');
 const pid_file = path.join(state_dir, 'server.pid');
 const log_file = path.join(state_dir, 'server.log');
+const server_dir = path.join(state_dir, 'server');
 
-function require_repo() {
-	const repo = find_repo();
-	if (!repo) {
-		console.error(`This command needs a svelte-utils repo clone.
-Clone https://github.com/davis7dotsh/svelte-utils and either run the CLI from
-inside it, or set: svelte-utils config set repo /path/to/svelte-utils`);
+/** version of the managed server bundle installed in state_dir, or null */
+function managed_server_version() {
+	try {
+		return readFileSync(path.join(server_dir, '.version'), 'utf-8').trim();
+	} catch {
+		return null;
+	}
+}
+
+/** download + npm-install the prebuilt server bundle for `version` into state_dir */
+async function install_managed_server(version) {
+	const url = `https://github.com/davis7dotsh/svelte-utils/releases/download/v${version}/svelte-utils-server.tar.gz`;
+	console.log(`Downloading server bundle v${version}...`);
+	let res;
+	try {
+		res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(300_000) });
+	} catch {
+		console.error('Could not reach GitHub. Check your connection and try again.');
 		process.exit(1);
 	}
-	return repo;
+	if (!res.ok) {
+		console.error(`Download failed (${res.status}): ${url}`);
+		console.error('Is there a published release for this CLI version?');
+		process.exit(1);
+	}
+
+	// stage into a sibling dir, then swap in — a running server keeps its old
+	// open files until restarted, and a failed install never corrupts server/
+	const staging = `${server_dir}.staging`;
+	rmSync(staging, { recursive: true, force: true });
+	mkdirSync(staging, { recursive: true });
+	const tarball = path.join(staging, 'bundle.tar.gz');
+	writeFileSync(tarball, Buffer.from(await res.arrayBuffer()));
+	let r = spawnSync('tar', ['-xzf', tarball, '-C', staging], { stdio: 'inherit' });
+	if (r.status !== 0) process.exit(r.status ?? 1);
+	rmSync(tarball, { force: true });
+
+	console.log('Installing server dependencies...');
+	r = spawnSync('npm', ['install', '--omit=dev', '--no-audit', '--no-fund'], {
+		cwd: staging,
+		stdio: 'inherit'
+	});
+	if (r.status !== 0) process.exit(r.status ?? 1);
+
+	writeFileSync(path.join(staging, '.version'), `${version}\n`);
+	rmSync(server_dir, { recursive: true, force: true });
+	renameSync(staging, server_dir);
+	console.log(`Server bundle v${version} installed (${server_dir})`);
 }
 
 async function start_local_server({ expose = false } = {}) {
-	const repo = require_repo();
+	const repo = find_repo();
 	const port = local_port();
 
 	mkdirSync(state_dir, { recursive: true });
 	const log = openSync(log_file, 'a');
-	const child = spawn(
-		'pnpm',
-		['dev', '--port', port, '--strictPort', ...(expose ? ['--host', '0.0.0.0'] : [])],
-		{ cwd: path.join(repo, 'packages/repl'), detached: true, stdio: ['ignore', log, log] }
-	);
+	let child;
+	if (repo) {
+		child = spawn(
+			'pnpm',
+			['dev', '--port', port, '--strictPort', ...(expose ? ['--host', '0.0.0.0'] : [])],
+			{ cwd: path.join(repo, 'packages/repl'), detached: true, stdio: ['ignore', log, log] }
+		);
+	} else {
+		if (managed_server_version() !== VERSION) await install_managed_server(VERSION);
+		child = spawn(process.execPath, ['build/index.js'], {
+			cwd: server_dir,
+			env: { ...process.env, PORT: port, HOST: expose ? '0.0.0.0' : '127.0.0.1' },
+			detached: true,
+			stdio: ['ignore', log, log]
+		});
+	}
 	child.unref();
 	writeFileSync(pid_file, String(child.pid));
 
@@ -196,7 +247,7 @@ async function cmd_open(args) {
 	const host = get_host(args);
 
 	if (!(await is_running(host))) {
-		if (is_local(host) && find_repo()) {
+		if (is_local(host)) {
 			await start_local_server();
 		} else {
 			console.error(`Playground server at ${host} is not reachable.`);
@@ -353,15 +404,24 @@ async function cmd_daemon(args) {
 		process.exit(1);
 	}
 
-	const repo = require_repo();
+	const repo = find_repo();
 	const port = local_port();
-	const repl = path.join(repo, 'packages/repl');
+	let working_dir;
 
-	console.log('Installing dependencies + building production server...');
-	let r = spawnSync('pnpm', ['install'], { cwd: repo, stdio: 'inherit' });
-	if (r.status !== 0) process.exit(r.status ?? 1);
-	r = spawnSync('pnpm', ['exec', 'vite', 'build'], { cwd: repl, stdio: 'inherit' });
-	if (r.status !== 0) process.exit(r.status ?? 1);
+	if (repo) {
+		// repo clone: build in place (development setup)
+		const repl = path.join(repo, 'packages/repl');
+		console.log('Repo clone found — installing dependencies + building production server...');
+		let r = spawnSync('pnpm', ['install'], { cwd: repo, stdio: 'inherit' });
+		if (r.status !== 0) process.exit(r.status ?? 1);
+		r = spawnSync('pnpm', ['exec', 'vite', 'build'], { cwd: repl, stdio: 'inherit' });
+		if (r.status !== 0) process.exit(r.status ?? 1);
+		working_dir = repl;
+	} else {
+		// no clone: use the prebuilt bundle matching this CLI version
+		if (managed_server_version() !== VERSION) await install_managed_server(VERSION);
+		working_dir = server_dir;
+	}
 
 	const node = process.execPath;
 	mkdirSync(path.dirname(unit_path), { recursive: true });
@@ -372,7 +432,7 @@ Description=svelte-utils playground core (not affiliated with the Svelte team)
 After=network.target
 
 [Service]
-WorkingDirectory=${repl}
+WorkingDirectory=${working_dir}
 ExecStart=${node} build/index.js
 Environment=PORT=${port}
 Environment=HOST=0.0.0.0
@@ -386,11 +446,11 @@ WantedBy=default.target
 	);
 
 	systemctl('daemon-reload');
-	r = systemctl('enable', '--now', 'svelte-utils');
+	let r = systemctl('enable', '--now', 'svelte-utils');
 	if (r.status !== 0) process.exit(r.status ?? 1);
 
 	config.host = `http://localhost:${port}`;
-	config.repo = repo;
+	if (repo) config.repo = repo;
 	write_config(config);
 
 	console.log(`\nsvelte-utils core installed and running on 0.0.0.0:${port}`);
@@ -434,6 +494,7 @@ async function cmd_update() {
 	}
 	if (latest === VERSION) {
 		console.log(`Already up to date (v${VERSION})`);
+		await update_managed_server(latest);
 		return;
 	}
 
@@ -448,6 +509,30 @@ async function cmd_update() {
 		process.exit(1);
 	}
 	console.log(`Updated v${VERSION} → v${latest} (${self})`);
+	await update_managed_server(latest);
+}
+
+/** if this machine runs a managed server bundle, bring it to `version` too */
+async function update_managed_server(version) {
+	const installed = managed_server_version();
+	if (!installed) return; // no managed server on this machine
+	if (installed === version) {
+		console.log(`Server bundle already up to date (v${version})`);
+		return;
+	}
+	await install_managed_server(version);
+	if (process.platform === 'linux' && existsSync(unit_path)) {
+		console.log('Restarting daemon...');
+		const r = systemctl('restart', 'svelte-utils');
+		if (r.status !== 0) {
+			console.error('Daemon restart failed — check: svelte-utils daemon status');
+			process.exit(1);
+		}
+		console.log('Daemon restarted on the new version.');
+	} else if (existsSync(pid_file)) {
+		console.log('Note: a locally managed server may still be running the old version.');
+		console.log('Restart it: svelte-utils server stop && svelte-utils server start');
+	}
 }
 
 // ---------------------------------------------------------------------------
