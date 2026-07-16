@@ -6,15 +6,15 @@ Test-drive self-contained `.svelte` components from the terminal: preview them i
 
 ## Commands
 
-| Command | What it does |
-| --- | --- |
-| `open <file.svelte>` | Push the file to the playground and open it in the browser. Re-running after an edit updates the already-open tab. |
-| `check <file.svelte>` | Run `svelte-check` on it (exit 1 on errors). `--json` for machine-readable output. |
-| `best-practices <file.svelte>` | Run the Svelte autofixer on it (exit 1 on issues). `--json` too. |
-| `config` | View or edit `~/.svelte-utils` (`host`, `repo`, `port`). |
-| `server <start\|stop\|status>` | Manage a local server (downloads a prebuilt bundle; uses a repo clone if you have one). |
-| `daemon <install\|uninstall\|status\|logs>` | Install the core as a systemd service (Linux). No repo clone needed. |
-| `update` (alias `upgrade`) | Update the CLI — and this machine's server/daemon, if it runs one — to the latest release. |
+| Command                                     | What it does                                                                                                       |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `open <file.svelte>`                        | Push the file to the playground and open it in the browser. Re-running after an edit updates the already-open tab. |
+| `check <file.svelte>`                       | Run `svelte-check` on it (exit 1 on errors). `--json` for machine-readable output.                                 |
+| `best-practices <file.svelte>`              | Run the Svelte autofixer on it (exit 1 on issues). `--json` too.                                                   |
+| `config`                                    | View or edit `~/.svelte-utils` (`host`, `repo`, `port`).                                                           |
+| `server <start\|stop\|status>`              | Manage a local server (downloads a prebuilt bundle; uses a repo clone if you have one).                            |
+| `daemon <install\|uninstall\|status\|logs>` | Install the core as a systemd service (Linux). No repo clone needed.                                               |
+| `update` (alias `upgrade`)                  | Update the CLI — and this machine's server/daemon, if it runs one — to the latest release.                         |
 
 ## Install
 
@@ -31,6 +31,8 @@ svelte-utils daemon install
 ```
 
 This downloads a prebuilt server bundle and installs it as a systemd service on `0.0.0.0:7488`. Later `svelte-utils update` runs update the server too and restart the daemon.
+
+The server records every `open`, `check`, and `best-practices` request locally as pretty-printed JSON in `~/.config/svelte-utils/data/YYYY-MM-DD/`. Each record contains the complete component source and command result. Set `XDG_CONFIG_HOME` to move the config root or `SVELTE_UTILS_DATA_DIR` to override the data directory directly; no records are sent elsewhere.
 
 **Point other machines at it:**
 

@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { randomBytes } from 'node:crypto';
+import { capture_command } from '$lib/server/command-log';
 import { save_session, valid_id } from '$lib/server/sessions';
 
 /** Push a component: `{ id?, basename, contents }` → `{ id, url }` */
@@ -11,7 +12,11 @@ export async function POST({ request, url }) {
 	if (!valid_id(id)) error(400, 'invalid session id (want [a-z0-9-]{6,64})');
 
 	const basename = typeof body.basename === 'string' ? body.basename : 'App.svelte';
-	save_session(id, basename, body.contents);
+	const request_data = { id, basename, contents: body.contents };
+	const result = await capture_command('open', request_data, () => {
+		save_session(id, basename, body.contents);
+		return { id, url: `${url.origin}/?s=${id}` };
+	});
 
-	return json({ id, url: `${url.origin}/?s=${id}` });
+	return json(result);
 }

@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { capture_command } from '$lib/server/command-log';
 
 const exec = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -26,36 +27,41 @@ export async function POST({ request }) {
 			? body.basename
 			: 'App.svelte';
 
-	const tmp = mkdtempSync(path.join(os.tmpdir(), 'svelte-utils-check-'));
-	writeFileSync(path.join(tmp, basename), body.contents);
+	const request_data = { basename, contents: body.contents };
+	const result = await capture_command('check', request_data, async () => {
+		const tmp = mkdtempSync(path.join(os.tmpdir(), 'svelte-utils-check-'));
+		writeFileSync(path.join(tmp, basename), body.contents);
 
-	try {
-		const { stdout } = await exec(
-			process.execPath,
-			[svelte_check_bin(), '--workspace', tmp, '--no-tsconfig', '--output', 'machine-verbose'],
-			{ timeout: 60_000 }
-		).catch((e) => e as { stdout: string }); // non-zero exit just means diagnostics were found
+		try {
+			const { stdout } = await exec(
+				process.execPath,
+				[svelte_check_bin(), '--workspace', tmp, '--no-tsconfig', '--output', 'machine-verbose'],
+				{ timeout: 60_000 }
+			).catch((e) => e as { stdout: string }); // non-zero exit just means diagnostics were found
 
-		const diagnostics = [];
-		let summary = null;
+			const diagnostics = [];
+			let summary = null;
 
-		for (const line of String(stdout).split('\n')) {
-			const start = line.indexOf(' ');
-			const rest = line.slice(start + 1);
-			if (rest.startsWith('{')) {
-				try {
-					diagnostics.push(JSON.parse(rest));
-				} catch {
-					// ignore unparseable rows
+			for (const line of String(stdout).split('\n')) {
+				const start = line.indexOf(' ');
+				const rest = line.slice(start + 1);
+				if (rest.startsWith('{')) {
+					try {
+						diagnostics.push(JSON.parse(rest));
+					} catch {
+						// ignore unparseable rows
+					}
+				} else if (rest.startsWith('COMPLETED')) {
+					const [, files, , errors, , warnings] = rest.split(' ');
+					summary = { files: +files, errors: +errors, warnings: +warnings };
 				}
-			} else if (rest.startsWith('COMPLETED')) {
-				const [, files, , errors, , warnings] = rest.split(' ');
-				summary = { files: +files, errors: +errors, warnings: +warnings };
 			}
-		}
 
-		return json({ diagnostics, summary });
-	} finally {
-		rmSync(tmp, { recursive: true, force: true });
-	}
+			return { diagnostics, summary };
+		} finally {
+			rmSync(tmp, { recursive: true, force: true });
+		}
+	});
+
+	return json(result);
 }
