@@ -5,12 +5,12 @@
 // Dependency-free by design: this single file is the entire client CLI.
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, openSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 
 // ---------------------------------------------------------------------------
 // config (~/.svelte-utils, JSON)
@@ -61,23 +61,28 @@ function local_port() {
 // ---------------------------------------------------------------------------
 
 function usage(code = 1) {
+	const host_source = process.env.SVELTE_UTILS_HOST
+		? 'SVELTE_UTILS_HOST'
+		: config.host
+			? '~/.svelte-utils'
+			: 'default';
+	const extras = Object.entries(config)
+		.filter(([key]) => key !== 'host')
+		.map(([key, value]) => `${key}=${value}`)
+		.join(' ');
 	console.log(`svelte-utils v${VERSION} — test-drive self-contained .svelte components
 (not affiliated with the Svelte team)
 
-Usage:
-  svelte-utils open <file.svelte> [--no-open]     push to the playground and open it
-  svelte-utils check <file.svelte> [--json]       run svelte-check via the server
-  svelte-utils best-practices <file.svelte> [--json]  run the Svelte autofixer via the server
-  svelte-utils config [set <key> <value> | unset <key>]
-  svelte-utils server <start|stop|status> [--expose]  manage a local dev server (needs repo clone)
-  svelte-utils daemon <install|uninstall|status|logs> install as a systemd service (Linux, needs repo clone)
+Commands:
+  open <file.svelte>            push to the playground and open it
+  check <file.svelte>           run svelte-check on it
+  best-practices <file.svelte>  run the Svelte autofixer on it
+  config                        view or edit ~/.svelte-utils (host, repo, port)
+  server                        manage a local dev server
+  daemon                        install the server as a systemd service (Linux)
+  update                        update this CLI to the latest release
 
-Host resolution: --host flag > SVELTE_UTILS_HOST > "host" in ~/.svelte-utils > http://localhost:${local_port()}
-
-Config keys:
-  host   base URL of the playground core, e.g. http://siva:7488
-  repo   path to a svelte-utils repo clone (for server/daemon commands)
-  port   port for locally managed servers (default 7488)`);
+Host: ${get_host([])} (${host_source})${extras ? `\nConfig: ${extras}` : ''}`);
 	process.exit(code);
 }
 
@@ -395,6 +400,57 @@ WantedBy=default.target
 }
 
 // ---------------------------------------------------------------------------
+// update: replace this script with the latest GitHub release
+// ---------------------------------------------------------------------------
+
+async function cmd_update() {
+	const self = realpathSync(fileURLToPath(import.meta.url));
+
+	if (existsSync(path.join(path.dirname(self), '../packages/repl'))) {
+		console.error(`This CLI is running from a repo clone (${path.dirname(path.dirname(self))}).`);
+		console.error('Update it with git pull instead.');
+		process.exit(1);
+	}
+
+	const url = 'https://github.com/davis7dotsh/svelte-utils/releases/latest/download/svelte-utils.js';
+	console.log(`Checking ${url}`);
+	let res;
+	try {
+		res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(30_000) });
+	} catch {
+		console.error('Could not reach GitHub. Check your connection and try again.');
+		process.exit(1);
+	}
+	if (!res.ok) {
+		console.error(`Download failed (${res.status})`);
+		process.exit(1);
+	}
+	const contents = await res.text();
+
+	const latest = contents.match(/^const VERSION = '([^']+)';$/m)?.[1];
+	if (!latest || !contents.startsWith('#!')) {
+		console.error('Downloaded file does not look like the svelte-utils CLI; not installing it.');
+		process.exit(1);
+	}
+	if (latest === VERSION) {
+		console.log(`Already up to date (v${VERSION})`);
+		return;
+	}
+
+	// write to a temp file next to the target, then rename (atomic on same fs)
+	const tmp = `${self}.${process.pid}.new`;
+	try {
+		writeFileSync(tmp, contents, { mode: 0o755 });
+		renameSync(tmp, self);
+	} catch (err) {
+		rmSync(tmp, { force: true });
+		console.error(`Could not replace ${self}: ${err.message}`);
+		process.exit(1);
+	}
+	console.log(`Updated v${VERSION} → v${latest} (${self})`);
+}
+
+// ---------------------------------------------------------------------------
 
 const [command, ...rest] = process.argv.slice(2);
 
@@ -418,6 +474,10 @@ switch (command) {
 		break;
 	case 'daemon':
 		await cmd_daemon(rest);
+		break;
+	case 'update':
+	case 'upgrade':
+		await cmd_update();
 		break;
 	case '--version':
 	case '-v':

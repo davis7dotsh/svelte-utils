@@ -10,7 +10,7 @@ Test-drive self-contained `.svelte` components: preview them in a locally hosted
 curl -fsSL https://davis7dotsh.github.io/svelte-utils/install.sh | sh
 ```
 
-The CLI is a single dependency-free Node script — Node 20+ is the only requirement.
+The CLI is a single dependency-free Node script — Node 20+ is the only requirement. Update it later with `svelte-utils update` (alias: `upgrade`).
 
 ## Set up the core (the server machine)
 
